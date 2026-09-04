@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f5f4">
+    <title>息流 / Respiring Field</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.3.1",
+                "react/": "https://esm.sh/react@18.3.1/",
+                "react-dom": "https://esm.sh/react-dom@18.3.1",
+                "react-dom/": "https://esm.sh/react-dom@18.3.1/"
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dialkit@1.4.3/dist/styles.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            background: #f5f5f4;
+        }
+
+        body {
+            color: #111111;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        .app-shell {
+            width: 100vw;
+            height: 100vh;
+            min-height: 560px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .stage {
+            display: grid;
+            place-items: center;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: min(100%, calc(100vh - 32px));
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 14px;
+            background: #101518;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .loading {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: rgba(255, 255, 255, 0.64);
+            font-size: 12px;
+        }
+
+        .control-dock {
+            width: 320px;
+            height: calc(100vh - 32px);
+            min-height: 0;
+            overflow: hidden;
+            border: 1px solid #dedede;
+            border-radius: 14px;
+            background: #fafafa;
+        }
+
+        #dialkit-root {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* DialKit's preset/copy row is intentionally removed for this single-purpose tool. */
+        #dialkit-root .dialkit-panel-toolbar {
+            display: none;
+        }
+
+        #dialkit-root .dialkit-panel-inline {
+            padding-top: 12px;
+        }
+
+        #dialkit-root .dialkit-panel-header {
+            padding-bottom: 0;
+            margin-bottom: 8px;
+            border-bottom: 0;
+        }
+
+        #dialkit-root .dialkit-panel-header > .dialkit-folder-header-top {
+            min-height: 28px;
+        }
+
+        .panel-icon-button {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            display: grid;
+            place-items: center;
+            margin-left: auto;
+            padding: 0;
+            color: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.04);
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 150ms, color 150ms, transform 100ms;
+        }
+
+        .panel-icon-button:hover {
+            color: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .panel-icon-button:active {
+            transform: scale(0.94);
+        }
+
+        .panel-icon-button:focus-visible,
+        #dialkit-root .dialkit-button:focus-visible {
+            outline: 2px solid rgba(0, 0, 0, 0.72);
+            outline-offset: 2px;
+        }
+
+        .panel-icon-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Keep Seed and its only action on one DialKit row. */
+        #dialkit-root .dialkit-folder-root
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-folder:first-child
+        > .dialkit-folder-content
+        > .dialkit-folder-inner {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 36px;
+            gap: 6px;
+        }
+
+        #dialkit-root .dialkit-folder-root
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-folder:first-child
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-slider-wrapper {
+            grid-column: 1 / -1;
+        }
+
+        #dialkit-root .dialkit-folder-root
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-folder:first-child
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-slider-wrapper:nth-child(6) {
+            grid-column: 1;
+        }
+
+        #dialkit-root .dialkit-folder-root
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-folder:first-child
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-button {
+            grid-column: 2;
+            grid-row: 6;
+            width: 36px;
+            min-width: 36px;
+            height: 36px;
+            padding: 0;
+            overflow: hidden;
+            font-size: 0;
+        }
+
+        #dialkit-root .dialkit-folder-root
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-folder:first-child
+        > .dialkit-folder-content
+        > .dialkit-folder-inner
+        > .dialkit-button::before {
+            content: '';
+            display: block;
+            width: 16px;
+            height: 16px;
+            margin: auto;
+            background: currentColor;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
+
+        .control-loading,
+        .control-error {
+            padding: 20px;
+            color: #707070;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .control-error {
+            color: #d58f80;
+        }
+
+        @media (max-width: 720px) {
+            body {
+                overflow: auto;
+            }
+
+            .app-shell {
+                width: 100vw;
+                height: auto;
+                min-height: 100vh;
+                grid-template-columns: 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .stage {
+                display: block;
+            }
+
+            .control-dock {
+                width: 100%;
+                height: auto;
+                min-height: 420px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="app-shell">
+        <section class="stage" aria-label="Dynamic noise artwork">
+            <div id="canvas-container">
+                <div class="loading">Loading artwork…</div>
+            </div>
+        </section>
+
+        <aside class="control-dock" aria-label="Artwork controls">
+            <div id="dialkit-root">
+                <div class="control-loading">Loading controls…</div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // ART STATE — THE NOISE ALGORITHM BELOW IS UNCHANGED
+        // ═══════════════════════════════════════════════════════════════════════
+
+        const respectsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        let params = {
+            seed: 12345,
+            spatialScale: 3.2,
+            driftSpeed: respectsReducedMotion ? 0 : 0.18,
+            domainWarp: 1.25,
+            contourPresence: 0.45,
+            grain: 0.025,
+            colorPalette: ['#151b26', '#46758c', '#eadfc8']
+        };
+
+        const defaultParams = {
+            ...params,
+            colorPalette: [...params.colorPalette]
+        };
+
+        let fieldShader;
+        let animationEpoch = 0;
+
+        const vertexShader = `
+            precision mediump float;
+
+            attribute vec3 aPosition;
+            attribute vec2 aTexCoord;
+
+            uniform mat4 uModelViewMatrix;
+            uniform mat4 uProjectionMatrix;
+
+            varying vec2 vTexCoord;
+
+            void main() {
+                vTexCoord = aTexCoord;
+                gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            precision highp float;
+
+            varying vec2 vTexCoord;
+
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform float u_seed;
+            uniform float u_scale;
+            uniform float u_speed;
+            uniform float u_warp;
+            uniform float u_contours;
+            uniform float u_grain;
+            uniform vec3 u_ink;
+            uniform vec3 u_current;
+            uniform vec3 u_mist;
+
+            float hash21(vec2 p) {
+                vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33 + u_seed * 0.00017);
+                return fract((p3.x + p3.y) * p3.z);
+            }
+
+            float valueNoise(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 local = fract(p);
+                vec2 curve = local * local * (3.0 - 2.0 * local);
+
+                float a = hash21(cell);
+                float b = hash21(cell + vec2(1.0, 0.0));
+                float c = hash21(cell + vec2(0.0, 1.0));
+                float d = hash21(cell + vec2(1.0, 1.0));
+
+                return mix(mix(a, b, curve.x), mix(c, d, curve.x), curve.y);
+            }
+
+            float fbm(vec2 p) {
+                float sum = 0.0;
+                float amplitude = 0.52;
+                mat2 turn = mat2(0.80, 0.60, -0.60, 0.80);
+
+                for (int octave = 0; octave < 6; octave++) {
+                    sum += amplitude * valueNoise(p);
+                    p = turn * p * 2.03 + vec2(11.7, 7.9);
+                    amplitude *= 0.49;
+                }
+
+                return sum;
+            }
+
+            void main() {
+                vec2 uv = vTexCoord;
+                uv.y = 1.0 - uv.y;
+
+                vec2 p = uv - 0.5;
+                p.x *= u_resolution.x / u_resolution.y;
+
+                float t = u_time * u_speed;
+                vec2 seedOffset = vec2(
+                    sin(u_seed * 0.071),
+                    cos(u_seed * 0.113)
+                ) * 13.0;
+                vec2 drift = vec2(t * 0.17, -t * 0.11);
+                vec2 base = p * u_scale + seedOffset;
+
+                vec2 q = vec2(
+                    fbm(base + drift),
+                    fbm(base + vec2(5.2, 1.3) - drift * 0.73)
+                );
+
+                vec2 r = vec2(
+                    fbm(base + u_warp * q * 1.42 + vec2(1.7, 9.2) + drift * 0.37),
+                    fbm(base + u_warp * q * 1.19 + vec2(8.3, 2.8) - drift * 0.29)
+                );
+
+                float field = fbm(
+                    base
+                    + (r - 0.5) * u_warp * 2.45
+                    + drift * 0.24
+                );
+
+                float breath = sin(t * 0.69 + q.x * 6.28318) * 0.022;
+                field = clamp(field + breath, 0.0, 1.0);
+
+                float body = smoothstep(0.18, 0.72, field);
+                vec3 color = mix(u_ink, u_current, body);
+
+                float lightPool = smoothstep(0.56, 0.91, field + q.x * 0.08);
+                color = mix(color, u_mist, lightPool * 0.92);
+
+                float filament = pow(max(0.0, 1.0 - abs(q.x - r.y)), 12.0);
+                color = mix(color, mix(u_current, u_mist, 0.68), filament * 0.075);
+
+                float contourBands = 5.5 + u_contours * 5.0;
+                float contourDistance = abs(fract(field * contourBands + q.y * 0.42) - 0.5);
+                float contourLine = 1.0 - smoothstep(0.018, 0.065, contourDistance);
+                color = mix(color, u_ink, contourLine * u_contours * 0.30);
+
+                float distanceFromCenter = length(uv - 0.5);
+                float edge = smoothstep(0.29, 0.76, distanceFromCenter);
+                color = mix(color, u_ink, edge * 0.18);
+
+                vec2 grainClock = vec2(floor(t * 23.0), -floor(t * 17.0));
+                float grainValue = hash21(gl_FragCoord.xy + grainClock);
+                color += (grainValue - 0.5) * u_grain;
+
+                color = pow(max(color, vec3(0.0)), vec3(0.94));
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        function setup() {
+            pixelDensity(1);
+            const canvas = createCanvas(1200, 1200, WEBGL);
+            canvas.parent('canvas-container');
+            noStroke();
+            fieldShader = createShader(vertexShader, fragmentShader);
+            initializeSystem();
+
+            const loading = document.querySelector('.loading');
+            if (loading) loading.style.display = 'none';
+        }
+
+        function initializeSystem() {
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+            animationEpoch = millis() / 1000;
+            loop();
+        }
+
+        function draw() {
+            const elapsed = Math.max(0, millis() / 1000 - animationEpoch);
+            const ink = hexToNormalizedRgb(params.colorPalette[0]);
+            const current = hexToNormalizedRgb(params.colorPalette[1]);
+            const mist = hexToNormalizedRgb(params.colorPalette[2]);
+
+            shader(fieldShader);
+            fieldShader.setUniform('u_resolution', [width, height]);
+            fieldShader.setUniform('u_time', elapsed);
+            fieldShader.setUniform('u_seed', params.seed);
+            fieldShader.setUniform('u_scale', params.spatialScale);
+            fieldShader.setUniform('u_speed', params.driftSpeed);
+            fieldShader.setUniform('u_warp', params.domainWarp);
+            fieldShader.setUniform('u_contours', params.contourPresence);
+            fieldShader.setUniform('u_grain', params.grain);
+            fieldShader.setUniform('u_ink', ink);
+            fieldShader.setUniform('u_current', current);
+            fieldShader.setUniform('u_mist', mist);
+
+            rect(-width / 2, -height / 2, width, height);
+            resetShader();
+        }
+
+        function hexToNormalizedRgb(hex) {
+            const cleaned = hex.replace('#', '');
+            return [
+                parseInt(cleaned.slice(0, 2), 16) / 255,
+                parseInt(cleaned.slice(2, 4), 16) / 255,
+                parseInt(cleaned.slice(4, 6), 16) / 255
+            ];
+        }
+
+        function cloneState(source) {
+            return {
+                ...source,
+                colorPalette: [...source.colorPalette]
+            };
+        }
+
+        window.RespiringField = {
+            getState() {
+                return cloneState(params);
+            },
+
+            getDefaults() {
+                return cloneState(defaultParams);
+            },
+
+            setParam(name, value) {
+                if (!(name in params)) return;
+                params[name] = Number(value);
+            },
+
+            setColor(index, value) {
+                if (index < 0 || index > 2) return;
+                params.colorPalette[index] = value;
+            },
+
+            setSeed(value) {
+                const nextSeed = Math.min(
+                    999999,
+                    Math.max(1, Math.round(Number(value) || params.seed))
+                );
+                params.seed = nextSeed;
+                initializeSystem();
+                return nextSeed;
+            },
+
+            regenerate() {
+                initializeSystem();
+            },
+
+            reset() {
+                params = cloneState(defaultParams);
+                initializeSystem();
+                return cloneState(params);
+            },
+
+            download() {
+                saveCanvas('respiring-field-seed-' + params.seed, 'png');
+            }
+        };
+    </script>
+
+    <script type="module">
+        const controlRoot = document.getElementById('dialkit-root');
+
+        try {
+            const ReactModule = await import('react');
+            const ReactDOMModule = await import('react-dom/client');
+            const ReactDOMPortalModule = await import('react-dom');
+            const DialKitModule = await import(
+                'https://esm.sh/dialkit@1.4.3?external=react,react-dom'
+            );
+
+            const React = ReactModule.default;
+            const { createRoot } = ReactDOMModule;
+            const { createPortal } = ReactDOMPortalModule;
+            const { DialRoot, useDialKitController } = DialKitModule;
+            const api = window.RespiringField;
+            const initial = api.getState();
+
+            const dialConfig = {
+                Motion: {
+                    Scale: [initial.spatialScale, 1.2, 7, 0.1],
+                    Drift: [initial.driftSpeed, 0, 0.75, 0.01],
+                    Warp: [initial.domainWarp, 0, 2.5, 0.05],
+                    Isolines: [initial.contourPresence, 0, 1, 0.05],
+                    Grain: [initial.grain, 0, 0.12, 0.005],
+                    Seed: [initial.seed, 1, 999999, 1],
+                    'Randomize seed': { type: 'action' }
+                },
+                Palette: {
+                    Deep: initial.colorPalette[0],
+                    Current: initial.colorPalette[1],
+                    Light: initial.colorPalette[2]
+                }
+            };
+
+            function ControlSurface() {
+                let dial;
+                const [headerTarget, setHeaderTarget] = React.useState(null);
+
+                const handleAction = (path) => {
+                    if (path === 'Motion.Randomize seed') {
+                        dial.setValue(
+                            'Motion.Seed',
+                            Math.floor(Math.random() * 999999) + 1
+                        );
+                    }
+                };
+
+                dial = useDialKitController('Respiring Field', dialConfig, {
+                    id: 'respiring-field',
+                    onAction: handleAction
+                });
+
+                const values = dial.values;
+                const motion = values.Motion;
+                const palette = values.Palette;
+
+                React.useEffect(() => {
+                    api.setParam('spatialScale', motion.Scale);
+                    api.setParam('driftSpeed', motion.Drift);
+                    api.setParam('domainWarp', motion.Warp);
+                    api.setParam('contourPresence', motion.Isolines);
+                    api.setParam('grain', motion.Grain);
+                }, [motion.Scale, motion.Drift, motion.Warp, motion.Isolines, motion.Grain]);
+
+                React.useEffect(() => {
+                    api.setColor(0, palette.Deep);
+                    api.setColor(1, palette.Current);
+                    api.setColor(2, palette.Light);
+                }, [palette.Deep, palette.Current, palette.Light]);
+
+                React.useEffect(() => {
+                    api.setSeed(motion.Seed);
+                }, [motion.Seed]);
+
+                React.useEffect(() => {
+                    const findHeader = () => {
+                        const target = controlRoot.querySelector(
+                            '.dialkit-panel-header > .dialkit-folder-header-top'
+                        );
+                        if (target) setHeaderTarget(target);
+                    };
+
+                    findHeader();
+                    const observer = new MutationObserver(findHeader);
+                    observer.observe(controlRoot, { childList: true, subtree: true });
+                    return () => observer.disconnect();
+                }, []);
+
+                const exportButton = React.createElement(
+                    'button',
+                    {
+                        type: 'button',
+                        className: 'panel-icon-button',
+                        onClick: () => api.download(),
+                        'aria-label': 'Export PNG',
+                        title: 'Export PNG'
+                    },
+                    React.createElement(
+                        'svg',
+                        {
+                            viewBox: '0 0 24 24',
+                            fill: 'none',
+                            stroke: 'currentColor',
+                            strokeWidth: '2',
+                            strokeLinecap: 'round',
+                            strokeLinejoin: 'round',
+                            'aria-hidden': 'true'
+                        },
+                        React.createElement('path', { d: 'M12 3v12' }),
+                        React.createElement('path', { d: 'm7 10 5 5 5-5' }),
+                        React.createElement('path', { d: 'M5 21h14' })
+                    )
+                );
+
+                return React.createElement(
+                    React.Fragment,
+                    null,
+                    React.createElement(DialRoot, {
+                        mode: 'inline',
+                        theme: 'light',
+                        defaultOpen: true,
+                        productionEnabled: true
+                    }),
+                    headerTarget ? createPortal(exportButton, headerTarget) : null
+                );
+            }
+
+            controlRoot.replaceChildren();
+            createRoot(controlRoot).render(React.createElement(ControlSurface));
+        } catch (error) {
+            console.error('DialKit control surface failed to load.', error);
+            controlRoot.innerHTML =
+                '<div class="control-error">Controls unavailable.<br>Check the network and reload.</div>';
+        }
+    </script>
+</body>
+</html>
